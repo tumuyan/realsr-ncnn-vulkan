@@ -22,7 +22,7 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 #endif // _WIN32
-#include "webp_image.h"
+
 
 #if _WIN32
 #include <wchar.h>
@@ -103,22 +103,21 @@ static void print_usage()
     fprintf(stderr, "Usage: realsr-ncnn-vulkan -i infile -o outfile [options]...\n\n");
     fprintf(stderr, "  -h                   show this help\n");
     fprintf(stderr, "  -v                   verbose output\n");
-    fprintf(stderr, "  -i input-path        input image path (jpg/png/webp) or directory\n");
-    fprintf(stderr, "  -o output-path       output image path (jpg/png/webp) or directory\n");
+    fprintf(stderr, "  -i input-path        input image path (jpg/png) or directory\n");
+    fprintf(stderr, "  -o output-path       output image path (jpg/png) or directory\n");
     fprintf(stderr, "  -s scale             upscale ratio (4, default=4)\n");
     fprintf(stderr, "  -t tile-size         tile size (>=32/0=auto, default=0) can be 0,0,0 for multi-gpu\n");
     fprintf(stderr, "  -m model-path        realsr model path (default=models-DF2K_JPEG)\n");
     fprintf(stderr, "  -g gpu-id            gpu device to use (default=auto) can be 0,1,2 for multi-gpu\n");
     fprintf(stderr, "  -j load:proc:save    thread count for load/proc/save (default=1:2:2) can be 1:2,2,2:2 for multi-gpu\n");
     fprintf(stderr, "  -x                   enable tta mode\n");
-    fprintf(stderr, "  -f format            output image format (jpg/png/webp, default=ext/png)\n");
+    fprintf(stderr, "  -f format            output image format (jpg/png, default=ext/png)\n");
 }
 
 class Task
 {
 public:
     int id;
-    int webp;
 
     path_t inpath;
     path_t outpath;
@@ -198,7 +197,6 @@ void* load(void* args)
     {
         const path_t& imagepath = ltp->input_files[i];
 
-        int webp = 0;
 
         unsigned char* pixeldata = 0;
         int w;
@@ -229,12 +227,6 @@ void* load(void* args)
 
             if (filedata)
             {
-                pixeldata = webp_load(filedata, length, &w, &h, &c);
-                if (pixeldata)
-                {
-                    webp = 1;
-                }
-                else
                 {
                     // not webp, try jpg png etc.
 #if _WIN32
@@ -353,11 +345,7 @@ void* save(void* args)
         // free input pixel data
         {
             unsigned char* pixeldata = (unsigned char*)v.inimage.data;
-            if (v.webp == 1)
-            {
-                free(pixeldata);
-            }
-            else
+
             {
 #if _WIN32
                 free(pixeldata);
@@ -371,11 +359,7 @@ void* save(void* args)
 
         path_t ext = get_file_extension(v.outpath);
 
-        if (ext == PATHSTR("webp") || ext == PATHSTR("WEBP"))
-        {
-            success = webp_save(v.outpath.c_str(), v.outimage.w, v.outimage.h, v.outimage.elempack, (const unsigned char*)v.outimage.data);
-        }
-        else if (ext == PATHSTR("png") || ext == PATHSTR("PNG"))
+        if (ext == PATHSTR("png") || ext == PATHSTR("PNG"))
         {
 #if _WIN32
             success = wic_encode_image(v.outpath.c_str(), v.outimage.w, v.outimage.h, v.outimage.elempack, v.outimage.data);
@@ -581,10 +565,6 @@ int main(int argc, char** argv)
         {
             format = PATHSTR("png");
         }
-        else if (ext == PATHSTR("webp") || ext == PATHSTR("WEBP"))
-        {
-            format = PATHSTR("webp");
-        }
         else if (ext == PATHSTR("jpg") || ext == PATHSTR("JPG") || ext == PATHSTR("jpeg") || ext == PATHSTR("JPEG"))
         {
             format = PATHSTR("jpg");
@@ -596,7 +576,7 @@ int main(int argc, char** argv)
         }
     }
 
-    if (format != PATHSTR("png") && format != PATHSTR("webp") && format != PATHSTR("jpg"))
+    if (format != PATHSTR("png") && format != PATHSTR("jpg"))
     {
         fprintf(stderr, "invalid format argument\n");
         return -1;
